@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 import uuid
 
 #Langchain Packages
-from langchain.document_loaders.csv_loader import CSVLoader
-from langchain.vectorstores import Chroma
-from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain_community.document_loaders import CSVLoader
+from langchain_community.vectorstores import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings as SentenceTransformerEmbeddings
 
 #Gen AI Packages
 import google.generativeai as genai
