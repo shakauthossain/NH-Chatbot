@@ -10,9 +10,14 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 import pytz
 import json
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleRequest
+from googleapiclient.discovery import build
 
 #API Packages
-from fastapi import APIRouter, UploadFile, File, HTTPException, Body, Path
+from fastapi import APIRouter, UploadFile, File, HTTPException, Body, Path, Query
+# from fastapi.responses import RedirectResponse
 
 #FAQ CSV Validator Package
 from pydantic import BaseModel, EmailStr
@@ -24,7 +29,14 @@ from chatbot_prompt import generate_prompt
 router = APIRouter()
 
 load_dotenv()
-calendly_api_key = os.getenv("CALENDLY_API")
+CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+ACCESS_TOKEN = os.getenv("GOOGLE_ACCESS_TOKEN")
+REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
+TIMEZONE = "Asia/Dhaka"
+
+SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 # Data validation classes
 class QuestionRequest(BaseModel):
@@ -34,24 +46,14 @@ class FAQItem(BaseModel):
     question: str
     answer: str
 
-CALENDLY_HOST_URL = "https://api.calendly.com/users/8374a3f7-29e8-4ef8-8609-59e01cce6733"
-EVENT_NAME = "Service Inquiry Notionhive"
-DEFAULT_TIMEZONE = "Asia/Dhaka"
-EVENT_TYPE= "https://calendly.com/shakaut-notionhive/service-inquiry-notionhive"
-
-HEADERS = {
-    "Authorization": f"Bearer {calendly_api_key}",
-    "Content-Type": "application/json"
-}
-
-# Pydantic model for incoming chatbot data
-class ScheduleMeetingRequest(BaseModel):
-    date: str
-    time: str
-    user_name: str
+# Meeting request model for Google Calendar
+class MeetingRequest(BaseModel):
+    date: str  # e.g. "2025-07-25"
+    time: str  # e.g. "03:00 PM"
     user_email: EmailStr
-    guest_email: Optional[EmailStr] = None
-    details: Optional[str] = ""
+    summary: str
+    description: str
+    guest_emails: Optional[List[EmailStr]] = None
 
 # Chat endpoint API
 @router.post("/ask")
@@ -197,134 +199,96 @@ async def retrain_db():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/calendly/schedule-fixed")
-async def schedule_fixed_event(req: ScheduleMeetingRequest):
+@router.get("/google-calendar/freebusy")
+def get_busy_slots(
+    start_date: str = Query(..., example="2025-07-20"),
+    end_date: str = Query(..., example="2025-07-21")
+):
     try:
-        print("🟡 Input Date:", req.date)
-        print("🟡 Input Time:", req.time)
+        # Use stored credentials
+        creds = Credentials(
+            token=ACCESS_TOKEN,
+            refresh_token=REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            scopes=SCOPES,
+        )
+        if creds.expired and creds.refresh_token:
+            creds.refresh(GoogleRequest())
 
-        # Step 1: Parse date and time separately
-        date_part = datetime.strptime(req.date.strip(), "%Y %m %d").date()
-        time_part = datetime.strptime(req.time.strip(), "%I.%M %p").time()
+        service = build("calendar", "v3", credentials=creds)
 
-        # Step 2: Combine into full datetime
-        combined = datetime.combine(date_part, time_part)
+        body = {
+            "timeMin": f"{start_date}T00:00:00Z",
+            "timeMax": f"{end_date}T23:59:59Z",
+            "timeZone": TIMEZONE,
+            "items": [{"id": "primary"}]
+        }
 
-        # Step 3: Localize and convert
-        tz = pytz.timezone(DEFAULT_TIMEZONE)
-        dt_local = tz.localize(combined)
+        response = service.freebusy().query(body=body).execute()
+        busy_slots = response["calendars"]["primary"]["busy"]
 
-        # Used for validation/log
-        start_time_iso = dt_local.isoformat()
-        end_time_iso = (dt_local + timedelta(minutes=30)).isoformat()
-
-        # Only use date part for Calendly's one_off_event_types
-        date_str = dt_local.strftime("%Y-%m-%d")
+        return {"busy": busy_slots}
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Date/time parse error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-    payload = {
-        "name": EVENT_NAME,
-        "host": CALENDLY_HOST_URL,
-        "duration": 30,
-        "timezone": DEFAULT_TIMEZONE,
-        "date_setting": {
-            "type": "date_range",
-            "start_date": date_str,
-            "end_date": date_str
-        },
-        "location": {
-            "kind": "physical",
-            "location": "Virtual",
-            "additonal_info": req.details
-        },
-        "invitees": [
-            {
-                "email": req.user_email,
-                "name": req.user_name
-            }
-        ]
-    }
 
-    print("📤 Payload to Calendly:")
-    print(json.dumps(payload, indent=2))
+@router.post("/google-calendar/schedule")
+def schedule_meeting(req: MeetingRequest):
+    try:
+        # Build credentials using stored tokens
+        creds = Credentials(
+            token=ACCESS_TOKEN,
+            refresh_token=REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            scopes=SCOPES,
+        )
 
-    response = requests.post(
-        "https://api.calendly.com/one_off_event_types",
-        headers=HEADERS,
-        json=payload
-    )
+        # Refresh token if expired
+        if creds.expired and creds.refresh_token:
+            creds.refresh(GoogleRequest())
 
-    if response.status_code != 201:
-        print("❌ Calendly Error:")
-        print(response.text)
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+        service = build("calendar", "v3", credentials=creds)
 
-    data = response.json()
-    return {
-        "message": "Meeting scheduled successfully!",
-        "booking_url": data["resource"]["scheduling_url"]
-    }
+        # Parse time
+        start = datetime.strptime(f"{req.date} {req.time.upper()}", "%Y-%m-%d %I:%M %p")
+        start = pytz.timezone(TIMEZONE).localize(start)
+        end = start + timedelta(minutes=30)
 
-# @router.post("/calendly/schedule-fixed")
-# async def schedule_fixed_event(req: ScheduleMeetingRequest):
-#     try:
-#         # Parse date + time
-#         combined_str = f"{req.date} {req.time}"
-#         dt_naive = datetime.strptime(combined_str, "%Y %m %d %I.%M %p")
-#         tz = pytz.timezone("Asia/Dhaka")
-#         dt_local = tz.localize(dt_naive)
-#
-#         # Convert to UTC for logs
-#         start_utc = dt_local.astimezone(pytz.utc)
-#         end_utc = start_utc + timedelta(minutes=30)
-#         start_time_iso = start_utc.isoformat()
-#         end_time_iso = end_utc.isoformat()
-#
-#         # Format date for Calendly
-#         date_str = dt_local.strftime("%Y-%m-%d")
-#
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-#
-#     payload = {
-#         "name": EVENT_NAME,
-#         "event_type": EVENT_TYPE,
-#         "host": CALENDLY_HOST_URL,
-#         "duration": 30,
-#         "timezone": DEFAULT_TIMEZONE,
-#         "date_setting": {
-#             "type": "date_range",
-#             "start_time": date_str,
-#             "end_time": date_str
-#         },
-#         "invitees": [
-#             {
-#                 "email": req.user_email,
-#                 "name": req.user_name
-#             }
-#         ],
-#         "location": {
-#             "kind": "physical",
-#             "location": "Virtual",
-#             "additonal_info": req.details
-#         }
-#     }
-#     print("👉 Raw inputs:")
-#     print("Date:", req.date)
-#     print("Time:", req.time)
-#
-#     response = requests.post(
-#         "https://api.calendly.com/one_off_event_types",
-#         headers=HEADERS,
-#         json=payload
-#     )
-#     print(date_str)
-#     if response.status_code != 201:
-#         raise HTTPException(status_code=response.status_code, detail=response.text)
-#
-#     return {
-#         "message": "Meeting scheduled successfully!",
-#         "event": response.json()
-#     }
+        attendees = [{"email": "shakauthossain0@gmail.com"}, {"email": req.user_email}]
+        if req.guest_emails:
+            attendees += [{"email": guest} for guest in req.guest_emails]
+
+        event = {
+            "summary": req.summary,
+            "description": req.description,
+            "start": {"dateTime": start.isoformat(), "timeZone": TIMEZONE},
+            "end": {"dateTime": end.isoformat(), "timeZone": TIMEZONE},
+            "attendees": attendees,
+            "conferenceData": {
+                "createRequest": {
+                    "requestId": str(uuid.uuid4()),
+                    "conferenceSolutionKey": {"type": "hangoutsMeet"},
+                }
+            },
+        }
+
+        event_result = service.events().insert(
+            calendarId="primary",
+            body=event,
+            conferenceDataVersion=1,
+            sendUpdates="all",
+        ).execute()
+
+        return {
+            "message": "Meeting scheduled successfully!",
+            "event_link": event_result.get("htmlLink"),
+            "meet_link": event_result.get("conferenceData", {}).get("entryPoints", [{}])[0].get("uri", "No Meet link")
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Input Format Error: " + str(e))

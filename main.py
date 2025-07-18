@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 #Route Calling From faq_routes.py
 from faq_routes import router as faq_router
+import auth
 
 app = FastAPI()
 
@@ -18,3 +19,4 @@ app.add_middleware(
 
 # Include FAQ API routes
 app.include_router(faq_router)
+app.include_router(auth.router)
