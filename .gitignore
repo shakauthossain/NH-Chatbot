@@ -1,1 +1,17 @@
 .env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+*.env
+*.DS_Store
+*.vscode
+*.idea
+*.egg-info
+*.coverage
+*.mypy_cache
+*.pytest_cache
+*.tox   

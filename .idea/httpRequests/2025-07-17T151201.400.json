@@ -1,3 +1,0 @@
-{
-  "detail": "{\"details\":[{\"message\":\"is missing\",\"parameter\":\"name\"},{\"message\":\"start_date is required\",\"parameter\":\"start_date\"},{\"message\":\"end_date is required\",\"parameter\":\"end_date\"}],\"message\":\"The supplied parameters are invalid.\",\"title\":\"Invalid Argument\"}"
-}
