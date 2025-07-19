@@ -10,10 +10,15 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 import pytz
 import json
+from collections import deque
+import time
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 from googleapiclient.discovery import build
+import asyncio
+import redis
+from urllib.parse import urlparse
 
 #API Packages
 from fastapi import APIRouter, UploadFile, File, HTTPException, Body, Path, Query
@@ -24,7 +29,8 @@ from pydantic import BaseModel, EmailStr
 
 #Calling Functions from other py files
 from faq_services import gemini_model, db, load_faqs, add_faq_to_csv, faq_path
-from chatbot_prompt import generate_prompt
+from chatbot_prompt import generate_prompt, detect_schedule_intent, detect_agent_intent
+from telegram import send_to_telegram, pending_requests
 
 router = APIRouter()
 
@@ -34,13 +40,23 @@ CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 ACCESS_TOKEN = os.getenv("GOOGLE_ACCESS_TOKEN")
 REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
+redis_url = os.getenv("REDIS_URL")
 TIMEZONE = "Asia/Dhaka"
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
+
+r = redis.from_url(redis_url, decode_responses=True)
+
+agent_active_users = set()
+user_sessions = {}
+REDIS_KEY_PREFIX = "chat_session:"
+MAX_HISTORY = 7
+
 # Data validation classes
 class QuestionRequest(BaseModel):
     query: str
+    user_id: Optional[str] = None
 
 class FAQItem(BaseModel):
     question: str
@@ -54,20 +70,88 @@ class MeetingRequest(BaseModel):
     summary: str
     description: str
     guest_emails: Optional[List[EmailStr]] = None
+    
+def get_history(user_id):
+    key = f"{REDIS_KEY_PREFIX}{user_id}"
+    history = r.lrange(key, 0, -1)
+    return [json.loads(x) for x in history]
+
+def update_history(user_id, role, content):
+    key = f"{REDIS_KEY_PREFIX}{user_id}"
+    r.rpush(key, json.dumps({"role": role, "content": content}))
+    r.ltrim(key, -MAX_HISTORY, -1)
+    r.expire(key, 1800)  # 🧠 Optional: expire session after 30 minutes of inactivity
+    
+def build_prompt_from_history(history):
+    return "\n".join(f"{msg['role']}: {msg['content']}" for msg in history) + "\nuser:"
+
+@router.get("/")
+def greet_json():
+    return {"Hello": "It is working!"}
 
 # Chat endpoint API
 @router.post("/ask")
 async def ask_faq(request: QuestionRequest):
-    query = request.query
-    results = db.similarity_search(query, k=3)
-    context = "\n\n".join([doc.page_content for doc in results])
-    prompt = generate_prompt(context, query)
+    query = request.query.strip()
+    user_id = request.user_id or f"user_{int(time.time()*1000)}"
 
+    # --- Detect agent intent ---
+    if user_id in agent_active_users:
+        send_to_telegram(query, user_id=user_id)
+        return {
+            "from_agent": True,
+            "message": "📨 Message sent to your agent. Please wait for their reply."
+        }
+
+    if detect_agent_intent(query):
+        agent_active_users.add(user_id)
+        send_to_telegram(query, user_id=user_id)
+        return {
+            "action": "connect_agent",
+            "user_id": user_id,
+            "message": "✅ Connecting you to a human agent..."
+        }
+
+    # --- Detect scheduling ---
+    if detect_schedule_intent(query):
+        return {
+            "action": "schedule_meeting",
+            "message": "Sure! Let's schedule your meeting. Please choose a date and time."
+        }
+
+    # --- Update user session history ---
+    # if user_id not in user_sessions:
+    #     user_sessions[user_id] = deque(maxlen=MAX_HISTORY)
+    # user_sessions[user_id].append({"role": "user", "content": query})
+
+    # --- Prepare prompt with history ---
+    update_history(user_id, "user", query)
+    history = get_history(user_id)
+    prompt = build_prompt_from_history(history)
+
+    # After getting answer
+    
+
+    # --- Call Gemini LLM ---
     try:
         response = gemini_model.generate_content(prompt)
-        return {"answer": response.text.strip()}
+        answer = response.text.strip()
+
+        # Add bot response to history
+        # user_sessions[user_id].append({"role": "bot", "content": answer})
+        update_history(user_id, "bot", answer) 
+
+        return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/end-agent-session/{user_id}")
+def end_agent_session(user_id: str):
+    if user_id in agent_active_users:
+        agent_active_users.remove(user_id)
+    r.delete(f"{REDIS_KEY_PREFIX}{user_id}")
+
+    return {"message": f"Agent session ended and memory cleared for {user_id}"}
 
 # Add Single FAQ API
 @router.post("/add_faq")
@@ -220,8 +304,8 @@ def get_busy_slots(
         service = build("calendar", "v3", credentials=creds)
 
         body = {
-            "timeMin": f"{start_date}T00:00:00Z",
-            "timeMax": f"{end_date}T23:59:59Z",
+            "timeMin": start_date,
+            "timeMax": end_date,
             "timeZone": TIMEZONE,
             "items": [{"id": "primary"}]
         }
@@ -285,7 +369,7 @@ def schedule_meeting(req: MeetingRequest):
         ).execute()
 
         return {
-            "message": "Meeting scheduled successfully!",
+            "message": "✅ Meeting scheduled successfully!",
             "event_link": event_result.get("htmlLink"),
             "meet_link": event_result.get("conferenceData", {}).get("entryPoints", [{}])[0].get("uri", "No Meet link")
         }

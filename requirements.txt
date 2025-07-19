@@ -12,3 +12,4 @@ pydantic[email]
 langchain_huggingface==0.3.0
 google-auth
 google-auth-oauthlib
+redis
