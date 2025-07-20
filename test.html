@@ -24,7 +24,7 @@
   <div id="messages"></div>
   <input type="text" id="query" placeholder="Type your message..." />
   <button onclick="sendMessage()">Send</button>
-  <button id="end-chat" onclick="endAgentChat()" style="display:none;">❌ End Agent Chat</button>
+  <button id="end-chat" onclick="endAgentChat()" style="display:none;">âŒ End Agent Chat</button>
 </div>
 
 <script>
@@ -48,7 +48,7 @@
     input.value = "";
 
     addMessage("user", query);
-    addMessage("bot", "⏳ Thinking...");
+    addMessage("bot", "â³ Thinking...");
 
     try {
       const res = await fetch("http://localhost:8000/ask", {
@@ -73,12 +73,12 @@
       } else if (data.answer) {
         addMessage("bot", data.answer);
       } else {
-        addMessage("bot", data.message || "❌ No response.");
+        addMessage("bot", data.message || "âŒ No response.");
       }
 
     } catch (err) {
       messagesDiv.lastElementChild.remove();
-      addMessage("bot", "⚠️ Error contacting server.");
+      addMessage("bot", "âš ï¸ Error contacting server.");
     }
   }
 
@@ -111,7 +111,7 @@
       method: "POST"
     });
 
-    addMessage("bot", "🔚 Agent chat ended. You're now back with NH Buddy. 🧠 Memory cleared. Start fresh!");
+    addMessage("bot", "ðŸ”š Agent chat ended. You're now back with NH Buddy. ðŸ§  Memory cleared. Start fresh!");
   }
 </script>
 

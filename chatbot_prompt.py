@@ -1,3 +1,4 @@
+#Model Calling for Validation
 from faq_services import gemini_model
 
 def generate_prompt(context: str, query: str) -> str:

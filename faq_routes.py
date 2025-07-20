@@ -1,28 +1,29 @@
 #Basic Packages
 import io
-import pandas as pd
+import os
 import uuid
 import traceback
-from dotenv import load_dotenv
-import os
 import requests
-from typing import List, Optional
-from datetime import datetime, timedelta
 import pytz
 import json
-from collections import deque
 import time
+import asyncio
+import redis
+import pandas as pd
+from dotenv import load_dotenv
+from typing import List, Optional
+from datetime import datetime, timedelta
+from collections import deque
+from urllib.parse import urlparse
+
+#Google API Packages
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 from googleapiclient.discovery import build
-import asyncio
-import redis
-from urllib.parse import urlparse
 
 #API Packages
 from fastapi import APIRouter, UploadFile, File, HTTPException, Body, Path, Query
-# from fastapi.responses import RedirectResponse
 
 #FAQ CSV Validator Package
 from pydantic import BaseModel, EmailStr
@@ -42,10 +43,7 @@ ACCESS_TOKEN = os.getenv("GOOGLE_ACCESS_TOKEN")
 REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
 redis_url = os.getenv("REDIS_URL")
 TIMEZONE = "Asia/Dhaka"
-
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-
-
 r = redis.from_url(redis_url, decode_responses=True)
 
 agent_active_users = set()
@@ -64,11 +62,11 @@ class FAQItem(BaseModel):
 
 # Meeting request model for Google Calendar
 class MeetingRequest(BaseModel):
-    date: str  # e.g. "2025-07-25"
-    time: str  # e.g. "03:00 PM"
+    date: str  # "YYYY-MM-DD" format, e.g. "2025-07-20"
+    time: str  # "HH:MM PM" format, e.g. "03:00 PM"
     user_email: EmailStr
-    summary: str
-    description: str
+    summary: Optional[str] = None
+    description: Optional[str] = None
     guest_emails: Optional[List[EmailStr]] = None
     
 def get_history(user_id):
@@ -80,7 +78,7 @@ def update_history(user_id, role, content):
     key = f"{REDIS_KEY_PREFIX}{user_id}"
     r.rpush(key, json.dumps({"role": role, "content": content}))
     r.ltrim(key, -MAX_HISTORY, -1)
-    r.expire(key, 1800)  # 🧠 Optional: expire session after 30 minutes of inactivity
+    r.expire(key, 1800)
     
 def build_prompt_from_history(history):
     return "\n".join(f"{msg['role']}: {msg['content']}" for msg in history) + "\nuser:"
@@ -95,7 +93,7 @@ async def ask_faq(request: QuestionRequest):
     query = request.query.strip()
     user_id = request.user_id or f"user_{int(time.time()*1000)}"
 
-    # --- Detect agent intent ---
+    # Detect agent intent
     if user_id in agent_active_users:
         send_to_telegram(query, user_id=user_id)
         return {
@@ -112,27 +110,19 @@ async def ask_faq(request: QuestionRequest):
             "message": "✅ Connecting you to a human agent..."
         }
 
-    # --- Detect scheduling ---
+    # Detect scheduling
     if detect_schedule_intent(query):
         return {
             "action": "schedule_meeting",
             "message": "Sure! Let's schedule your meeting. Please choose a date and time."
         }
 
-    # --- Update user session history ---
-    # if user_id not in user_sessions:
-    #     user_sessions[user_id] = deque(maxlen=MAX_HISTORY)
-    # user_sessions[user_id].append({"role": "user", "content": query})
-
-    # --- Prepare prompt with history ---
+    # Prepare prompt with history
     update_history(user_id, "user", query)
     history = get_history(user_id)
     prompt = build_prompt_from_history(history)
 
-    # After getting answer
-    
-
-    # --- Call Gemini LLM ---
+    # Call Gemini LLM
     try:
         response = gemini_model.generate_content(prompt)
         answer = response.text.strip()
@@ -283,6 +273,7 @@ async def retrain_db():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Google Calendar API routes
 @router.get("/google-calendar/freebusy")
 def get_busy_slots(
     start_date: str = Query(..., example="2025-07-20"),
@@ -318,10 +309,11 @@ def get_busy_slots(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+# Schedule Meeting API
 @router.post("/google-calendar/schedule")
 def schedule_meeting(req: MeetingRequest):
     try:
+        print("Received meeting data:", req.dict())
         # Build credentials using stored tokens
         creds = Credentials(
             token=ACCESS_TOKEN,
@@ -360,16 +352,14 @@ def schedule_meeting(req: MeetingRequest):
                 }
             },
         }
-
         event_result = service.events().insert(
             calendarId="primary",
             body=event,
             conferenceDataVersion=1,
             sendUpdates="all",
         ).execute()
-
         return {
-            "message": "✅ Meeting scheduled successfully!",
+            "message": "Meeting scheduled successfully!",
             "event_link": event_result.get("htmlLink"),
             "meet_link": event_result.get("conferenceData", {}).get("entryPoints", [{}])[0].get("uri", "No Meet link")
         }
