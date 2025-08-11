@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NH Buddy Chatbot</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 30px; }
+    #chatbox { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+    .msg { margin-bottom: 12px; }
+    .user { color: #2b6cb0; font-weight: bold; }
+    .bot { color: #38a169; font-weight: bold; }
+    .agent { color: #d69e2e; font-weight: bold; }
+    .text { margin-left: 0.5rem; }
+    input, button { padding: 10px; font-size: 16px; }
+    input { width: 72%; }
+    button { width: 24%; margin-left: 2%; }
+    #end-chat { margin-top: 10px; color: white; background: #e53e3e; border: none; padding: 10px; width: 100%; cursor: pointer; border-radius: 5px; }
+    #end-chat:hover { background: #c53030; }
+  </style>
+</head>
+<body>
+
+<div id="chatbox">
+  <div id="messages"></div>
+  <input type="text" id="query" placeholder="Type your message..." />
+  <button onclick="sendMessage()">Send</button>
+  <button id="end-chat" onclick="endAgentChat()" style="display:none;">âŒ End Agent Chat</button>
+</div>
+
+<script>
+  const messagesDiv = document.getElementById("messages");
+  const input = document.getElementById("query");
+  const userId = `user_${Date.now()}`;
+  let polling = false;
+  let agentMode = false;
+
+  function addMessage(sender, text) {
+    const div = document.createElement("div");
+    div.className = "msg";
+    div.innerHTML = `<span class="${sender}">${sender}:</span><span class="text">${text}</span>`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const query = input.value.trim();
+    if (!query) return;
+    input.value = "";
+
+    addMessage("user", query);
+    addMessage("bot", "â³ Thinking...");
+
+    try {
+      const res = await fetch("http://localhost:8000/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, user_id: userId })
+      });
+
+      const data = await res.json();
+      messagesDiv.lastElementChild.remove(); // remove "thinking"
+
+      if (data.action === "connect_agent") {
+        agentMode = true;
+        document.getElementById("end-chat").style.display = "block";
+        addMessage("bot", data.message);
+        pollForAgentReply(userId);
+      } else if (data.from_agent) {
+        addMessage("agent", data.message);
+      } else if (data.message?.includes("Message sent to your agent")) {
+        addMessage("bot", data.message);
+        if (!polling) pollForAgentReply(userId);
+      } else if (data.answer) {
+        addMessage("bot", data.answer);
+      } else {
+        addMessage("bot", data.message || "âŒ No response.");
+      }
+
+    } catch (err) {
+      messagesDiv.lastElementChild.remove();
+      addMessage("bot", "âš ï¸ Error contacting server.");
+    }
+  }
+
+  async function pollForAgentReply(user_id) {
+    if (polling) return;
+    polling = true;
+
+    while (polling && agentMode) {
+      try {
+        const res = await fetch(`http://localhost:8000/telegram/reply/${user_id}`);
+        const data = await res.json();
+        if (data.from_agent && data.message) {
+          addMessage("agent", data.message);
+        }
+      } catch (e) {
+        console.warn("Polling error", e);
+      }
+
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
+  async function endAgentChat() {
+    polling = false;
+    agentMode = false;
+    document.getElementById("end-chat").style.display = "none";
+
+    // Notify backend to end agent mode and clear Redis session
+    await fetch(`http://localhost:8000/end-agent-session/${userId}`, {
+      method: "POST"
+    });
+
+    addMessage("bot", "ðŸ”š Agent chat ended. You're now back with NH Buddy. ðŸ§  Memory cleared. Start fresh!");
+  }
+</script>
+
+</body>
+</html>

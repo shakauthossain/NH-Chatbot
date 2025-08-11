@@ -8,7 +8,7 @@ import pytz
 import json
 import time
 import asyncio
-import redis
+# import redis
 import pandas as pd
 from dotenv import load_dotenv
 from typing import List, Optional
@@ -29,9 +29,9 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Body, Path, Quer
 from pydantic import BaseModel, EmailStr
 
 #Calling Functions from other py files
-from faq_services import gemini_model, db, load_faqs, add_faq_to_csv, faq_path
+from faq_services import gemini_model, db, load_faqs, add_faq_to_csv, faq_path, ask_gemini_with_system
 from chatbot_prompt import generate_prompt, detect_schedule_intent, detect_agent_intent
-from telegram import send_to_telegram, pending_requests
+# from telegram import send_to_telegram, pending_requests
 
 router = APIRouter()
 
@@ -41,20 +41,20 @@ CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 ACCESS_TOKEN = os.getenv("GOOGLE_ACCESS_TOKEN")
 REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
-redis_url = os.getenv("REDIS_URL")
+# redis_url = os.getenv("REDIS_URL")
 TIMEZONE = "Asia/Dhaka"
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-r = redis.from_url(redis_url, decode_responses=True)
+# r = redis.from_url(redis_url, decode_responses=True)
 
 agent_active_users = set()
 user_sessions = {}
-REDIS_KEY_PREFIX = "chat_session:"
+# REDIS_KEY_PREFIX = "chat_session:"
 MAX_HISTORY = 7
 
 # Data validation classes
 class QuestionRequest(BaseModel):
     query: str
-    user_id: Optional[str] = None
+    # user_id: Optional[str] = None
 
 class FAQItem(BaseModel):
     question: str
@@ -69,56 +69,56 @@ class MeetingRequest(BaseModel):
     description: Optional[str] = None
     guest_emails: Optional[List[EmailStr]] = None
     
-def get_history(user_id):
-    key = f"{REDIS_KEY_PREFIX}{user_id}"
-    history = r.lrange(key, 0, -1)
-    return [json.loads(x) for x in history]
+# def get_history(user_id):
+#     key = f"{REDIS_KEY_PREFIX}{user_id}"
+#     history = r.lrange(key, 0, -1)
+#     return [json.loads(x) for x in history]
 
-def update_history(user_id, role, content):
-    key = f"{REDIS_KEY_PREFIX}{user_id}"
-    r.rpush(key, json.dumps({"role": role, "content": content}))
-    r.ltrim(key, -MAX_HISTORY, -1)
-    r.expire(key, 1800)
+# def update_history(user_id, role, content):
+#     key = f"{REDIS_KEY_PREFIX}{user_id}"
+#     r.rpush(key, json.dumps({"role": role, "content": content}))
+#     r.ltrim(key, -MAX_HISTORY, -1)
+#     r.expire(key, 1800)
     
 def build_prompt_from_history(history):
     return "\n".join(f"{msg['role']}: {msg['content']}" for msg in history) + "\nuser:"
 
 @router.get("/")
 def greet_json():
-    return {"Hello": "It is working!"}
+    return {"Hello From Notionhive": "I am working just fine, Thank you for asking! 😉"}
 
 # Chat endpoint API
 @router.post("/ask")
 async def ask_faq(request: QuestionRequest):
     query = request.query.strip()
-    user_id = request.user_id or f"user_{int(time.time()*1000)}"
+    # user_id = request.user_id or f"user_{int(time.time()*1000)}"
 
-    # Detect agent intent
-    if user_id in agent_active_users:
-        send_to_telegram(query, user_id=user_id)
-        return {
-            "from_agent": True,
-            "message": "📨 Message sent to your agent. Please wait for their reply."
-        }
+    # # Detect agent intent
+    # if user_id in agent_active_users:
+    #     send_to_telegram(query, user_id=user_id)
+    #     return {
+    #         "from_agent": True,
+    #         "message": "📨 Message sent to your agent. Please wait for their reply."
+    #     }
 
-    if detect_agent_intent(query):
-        agent_active_users.add(user_id)
+    # if detect_agent_intent(query):
+    #     agent_active_users.add(user_id)
 
-        history = get_history(user_id)
-        history_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in history[-5:])
-        summary_msg = f"New agent request from user: {user_id}*\n\n Chat Summary:\n{history_text}"
+    #     history = get_history(user_id)
+    #     history_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in history[-5:])
+    #     summary_msg = f"New agent request from user: {user_id}*\n\n Chat Summary:\n{history_text}"
 
-        # First send summary
-        send_to_telegram(summary_msg, user_id=user_id)
+    #     # First send summary
+    #     send_to_telegram(summary_msg, user_id=user_id)
 
-        # Then send the live message
-        send_to_telegram(query, user_id=user_id)
+    #     # Then send the live message
+    #     send_to_telegram(query, user_id=user_id)
 
-        return {
-            "action": "connect_agent",
-            "user_id": user_id,
-            "message": "✅ Connecting you to a human agent..."
-        }
+    #     return {
+    #         "action": "connect_agent",
+    #         "user_id": user_id,
+    #         "message": "✅ Connecting you to a human agent..."
+    #     }
 
     # Detect scheduling
     if detect_schedule_intent(query):
@@ -128,28 +128,28 @@ async def ask_faq(request: QuestionRequest):
         }
 
     # Prepare prompt with history
-    update_history(user_id, "user", query)
-    history = get_history(user_id)
-    prompt = build_prompt_from_history(history)
+    # update_history(user_id, "user", query)
+    # history = get_history(user_id)
+    # prompt = build_prompt_from_history(history)
 
     # Call Gemini LLM
     try:
-        response = gemini_model.generate_content(prompt)
-        answer = response.text.strip()
+        response = ask_gemini_with_system(query)
+        # answer = response.text.strip()
 
-        update_history(user_id, "bot", answer) 
+    #     # update_history(user_id, "bot", answer) 
 
-        return {"answer": answer}
+        return {"answer": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/end-agent-session/{user_id}")
-def end_agent_session(user_id: str):
-    if user_id in agent_active_users:
-        agent_active_users.remove(user_id)
-    r.delete(f"{REDIS_KEY_PREFIX}{user_id}")
+# @router.post("/end-agent-session/{user_id}")
+# def end_agent_session(user_id: str):
+#     if user_id in agent_active_users:
+#         agent_active_users.remove(user_id)
+#     r.delete(f"{REDIS_KEY_PREFIX}{user_id}")
 
-    return {"message": f"Agent session ended and memory cleared for {user_id}"}
+#     return {"message": f"Agent session ended and memory cleared for {user_id}"}
 
 # Add Single FAQ API
 @router.post("/add_faq")
