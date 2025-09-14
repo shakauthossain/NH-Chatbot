@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  nh-chatbot:
+    build: .
+    container_name: nh-chatbot
+    ports:
+      - "8002:8002"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - AGENT_CHAT_ID=${AGENT_CHAT_ID}
+      - REDIS_URL=${REDIS_URL}
+      # Add other environment variables as needed
+    restart: unless-stopped
+    # user: appuser  # Not needed if set in Dockerfile
+    # volumes:      # Uncomment if you want to mount local files
+    #   - ./faqs.csv:/app/faqs.csv

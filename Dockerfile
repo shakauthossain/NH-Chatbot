@@ -5,7 +5,8 @@ FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN mkdir -p /app/hf_cache
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Set working directory
 WORKDIR /app
@@ -17,11 +18,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire application
 COPY . .
 
-RUN chmod 777 /app/faqs.csv
+# Restrict file permissions for production (read/write for owner, read for group)
+RUN chmod 640 /app/faqs.csv
 
-# Expose the port FastAPI will run on (Hugging Face requires 7860)
-EXPOSE 7860
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
+
+
+# Expose the port FastAPI will run on (using 8002)
+EXPOSE 8002
+
+# Switch to non-root user
+USER appuser
 
 # Run the FastAPI app using uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]
 

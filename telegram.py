@@ -2,7 +2,9 @@
 import os
 import requests
 import re
+import time
 from dotenv import load_dotenv
+from collections import defaultdict, deque
 
 # FastAPI Packages
 from fastapi import APIRouter, Request, HTTPException
@@ -17,92 +19,156 @@ AGENT_CHAT_ID = int(-1002796640614)  #Group Chat ID starts with -100, Normal cha
 TELEGRAM_API_BASE = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Temporary in-memory reply store
-user_replies = {}
+user_replies = defaultdict(lambda: deque(maxlen=50))
 pending_requests = {}
 last_user_tagged = None
+message_map = {}
+
 
 # Send message to Telegram agent with user tag
 def send_to_telegram(message: str, user_id: str = "anonymous") -> bool:
     try:
         tag = f"[USER:{user_id}]"
-        full_message = f"{tag}\n\n{message}"
-        chat_id = int(AGENT_CHAT_ID)
-
+        full_message = (
+            "👤 New user message\n"
+            f"{tag}\n\n"
+            f"{message}\n\n"
+            f"↩️ Agents: Please REPLY to this message (or include {tag} in your reply)."
+        )
         payload = {
-            "chat_id": chat_id,
-            "text": full_message
+            "chat_id": int(AGENT_CHAT_ID),
+            "text": full_message,
+            "disable_web_page_preview": True,
         }
-
         url = f"{TELEGRAM_API_BASE}/sendMessage"
-        response = requests.post(url, json=payload)
+        resp = requests.post(url, json=payload, timeout=10)
 
         print("Sending to Telegram group...")
         print("Payload:", payload)
-        print("Telegram response:", response.status_code, response.text)
+        print("Telegram response:", resp.status_code, resp.text)
 
-        return response.status_code == 200
+        if not resp.ok:
+            return False
+
+        # store message_id -> user_id for robust correlation
+        data = resp.json()
+        msg_id = (data.get("result") or {}).get("message_id")
+        if msg_id is not None:
+            message_map[msg_id] = user_id
+        return True
 
     except Exception as e:
         print("Error in send_to_telegram:", str(e))
         return False
 
-# Telegram Webhook
+def _extract_user_tag(text: str) -> str | None:
+    if not text:
+        return None
+    m = re.search(r"\[USER:(.+?)\]", text)
+    return m.group(1).strip() if m else None
+
+def _select_update_payload(data: dict) -> dict | None:
+    return (data.get("message")
+            or data.get("edited_message")
+            or data.get("channel_post")
+            or data.get("edited_channel_post"))
+
+def _extract_user_tag(text: str):
+    if not text:
+        return None
+    m = re.search(r"\[USER:(.+?)\]", text)
+    return m.group(1).strip() if m else None
+
 @router.post("/telegram/webhook")
 async def telegram_webhook(request: Request):
     try:
         data = await request.json()
-        print("Telegram data:", data)
+        msg = (
+            data.get("message")
+            or data.get("edited_message")
+            or data.get("channel_post")
+            or data.get("edited_channel_post")
+        )
+        if not msg:
+            return {"status": "ignored", "reason": "no usable message"}
 
-        msg = data.get("message", {})
-        print("Telegram msg:", msg)
-        message_text = msg.get("text", "")
-        from_user = msg.get("from", {}).get("username", "agent")
+        text = msg.get("text") or msg.get("caption") or ""
 
-        # Case 1: Agent used "Reply" to respond to bot's message
-        reply_to = msg.get("reply_to_message", {})
-        original_text = reply_to.get("text", "")
-        print("Original text from reply_to_message:", original_text)
+        # Debug: print the full incoming Telegram update
+        print("[webhook] Incoming Telegram update:", msg)
+        print("[webhook] Current message_map:", message_map)
+        print("[webhook] Current user_replies:", {k: list(v) for k, v in user_replies.items()})
 
-        user_tag_match = re.search(r"\[USER:(.+?)\]", original_text)
-        if user_tag_match:
-            user_id = user_tag_match.group(1).strip()
-            print(f"Matched user tag from reply_to_message: {user_id}")
+        from_user = (msg.get("from") or {}).get("username") \
+                    or (msg.get("from") or {}).get("first_name") \
+                    or "agent"
 
-            reply_data = {
-                "reply": message_text,
-                "from": from_user
-            }
+        rt = msg.get("reply_to_message")
+        if rt:
+            print("[webhook] Found reply_to_message:", rt)
+            reply_to_id = rt.get("message_id")
+            print("[webhook] reply_to_id:", reply_to_id)
+            if reply_to_id in message_map:
+                user_id = message_map.pop(reply_to_id)  # one-shot map
+                print(f"[webhook] Matched reply_to_id in message_map: {reply_to_id} -> {user_id}")
+                # ⬇️ QUEUE the reply instead of overwriting
+                user_replies[user_id].append({
+                    "reply": text.strip(),
+                    "from": from_user,
+                    "ts": time.time(),
+                })
+                print(f"[webhook] matched via reply_to_id -> {user_id}")
+                return {"status": "ok", "via": "reply_to_id", "user_id": user_id}
 
-            user_replies[user_id] = reply_data
+            # fallback: try user tag in the original text
+            orig = rt.get("text") or rt.get("caption") or ""
+            print("[webhook] fallback: original text for user tag:", orig)
+            user_id = _extract_user_tag(orig)
+            if user_id:
+                print(f"[webhook] Matched user tag in reply_to_message text: {user_id}")
+                user_replies[user_id].append({
+                    "reply": text.strip(),
+                    "from": from_user,
+                    "ts": time.time(),
+                })
+                print(f"[webhook] matched via reply_to_text -> {user_id}")
+                return {"status": "ok", "via": "reply_to_text", "user_id": user_id}
 
-            if user_id in pending_requests:
-                future = pending_requests.pop(user_id)
-                if not future.done():
-                    future.set_result(reply_data)
+        # Last resort: allow inline [USER:...] in the agent's own message
+        user_id = _extract_user_tag(text)
+        if user_id:
+            print(f"[webhook] Matched inline user tag in agent message: {user_id}")
+            clean = re.sub(r"\[USER:.+?\]\s*", "", text).strip()
+            user_replies[user_id].append({
+                "reply": clean,
+                "from": from_user,
+                "ts": time.time(),
+            })
+            print(f"[webhook] matched via inline_tag -> {user_id}")
+            return {"status": "ok", "via": "inline_tag", "user_id": user_id}
 
-            return {"status": "reply matched", "user_id": user_id}
-
-        # Case 2: Agent directly typed message without reply (ignored)
-        print("No [USER:...] found in reply_to_message.")
-        return {"status": "ignored - no tag"}
+        print("[webhook] ignored: no correlation")
+        return {"status": "ignored", "reason": "no correlation"}
 
     except Exception as e:
-        print("Webhook error:", str(e))
+        print("Webhook error:", repr(e))
         raise HTTPException(status_code=400, detail=str(e))
+
+
 
 # Sending message to agent
 @router.get("/telegram/reply/{user_id}")
 def get_agent_reply(user_id: str):
-    if user_id in user_replies:
-        reply = user_replies.pop(user_id)
-        print("Reply from user:", reply)
+    q = user_replies.get(user_id)
+    if q and len(q):
+        item = q.popleft()  # FIFO
         return {
             "from_agent": True,
-            "message": reply["reply"],
-            "agent": reply["from"]
+            "message": item["reply"],
+            "agent": item["from"]
         }
-    else:
-        return {"from_agent": False, "message": None}
+    return {"from_agent": False, "message": None}
+
 
 # Optional: Ping route to test
 @router.get("/telegram/test")
@@ -123,3 +189,18 @@ def test_send():
         "status": response.status_code,
         "response": response.json()
     })
+
+@router.get("/telegram/health")
+def telegram_health():
+    return {
+      "getMe": requests.get(f"{TELEGRAM_API_BASE}/getMe", timeout=10).json(),
+      "webhook": requests.get(f"{TELEGRAM_API_BASE}/getWebhookInfo", timeout=10).json()
+    }
+
+@router.get("/telegram/debug/state")
+def tg_state():
+    return {"message_map_size": len(message_map), "user_replies_size": len(user_replies)}
+
+@router.get("/telegram/debug/user/{user_id}")
+def tg_user(user_id: str):
+    return {"stored": user_replies.get(user_id)}

@@ -15,6 +15,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from collections import deque
 from urllib.parse import urlparse
+from collections import defaultdict, deque
 
 #Google API Packages
 from google_auth_oauthlib.flow import Flow
@@ -44,12 +45,33 @@ REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
 redis_url = os.getenv("REDIS_URL")
 TIMEZONE = "Asia/Dhaka"
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-r = redis.from_url(redis_url, decode_responses=True)
+r = None
+try:
+    if redis_url:
+        # Upstash often needs TLS (rediss://). from_url handles it.
+        r = redis.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+            retry_on_timeout=True,
+        )
+        r.ping()  # fail fast if unreachable
+        print("✅ Redis connected")
+    else:
+        print("ℹ️ REDIS_URL not set, using in-memory history")
+except Exception as e:
+    print(f"⚠️ Redis unavailable ({e}), using in-memory history")
+    r = None
 
 agent_active_users = set()
 user_sessions = {}
 REDIS_KEY_PREFIX = "chat_session:"
 MAX_HISTORY = 7
+
+_fallback_histories = defaultdict(lambda: deque(maxlen=MAX_HISTORY))
+HISTORY_TTL_SECONDS = 1800
+_last_seen = {}
 
 # Data validation classes
 class QuestionRequest(BaseModel):
@@ -79,6 +101,55 @@ def update_history(user_id, role, content):
     r.rpush(key, json.dumps({"role": role, "content": content}))
     r.ltrim(key, -MAX_HISTORY, -1)
     r.expire(key, 1800)
+
+def _fallback_update(user_id, item):
+    dq = _fallback_histories[user_id]
+    dq.append(item)
+    _last_seen[user_id] = time.time()
+
+def _fallback_get(user_id):
+    # optional TTL pruning
+    ts = _last_seen.get(user_id)
+    if ts and (time.time() - ts) > HISTORY_TTL_SECONDS:
+        _fallback_histories.pop(user_id, None)
+        _last_seen.pop(user_id, None)
+        return []
+    return list(_fallback_histories.get(user_id, []))
+
+def get_history(user_id):
+    key = f"{REDIS_KEY_PREFIX}{user_id}"
+    if r:
+        try:
+            items = r.lrange(key, -MAX_HISTORY, -1)
+            return [json.loads(x) for x in items]
+        except Exception as e:
+            print(f"⚠️ Redis read failed: {e}; using fallback")
+    return _fallback_get(user_id)
+
+def update_history(user_id, role, content):
+    item = {"role": role, "content": content}
+    key = f"{REDIS_KEY_PREFIX}{user_id}"
+    if r:
+        try:
+            pipe = r.pipeline()
+            pipe.rpush(key, json.dumps(item))
+            pipe.ltrim(key, -MAX_HISTORY, -1)
+            pipe.expire(key, HISTORY_TTL_SECONDS)
+            pipe.execute()
+            return
+        except Exception as e:
+            print(f"⚠️ Redis write failed: {e}; using fallback")
+    _fallback_update(user_id, item)
+
+def clear_history(user_id):
+    key = f"{REDIS_KEY_PREFIX}{user_id}"
+    if r:
+        try:
+            r.delete(key)
+        except Exception as e:
+            print(f"⚠️ Redis delete failed: {e}")
+    _fallback_histories.pop(user_id, None)
+    _last_seen.pop(user_id, None)
     
 def build_prompt_from_history(history):
     return "\n".join(f"{msg['role']}: {msg['content']}" for msg in history) + "\nuser:"
@@ -145,11 +216,10 @@ async def ask_faq(request: QuestionRequest):
 
 @router.post("/end-agent-session/{user_id}")
 def end_agent_session(user_id: str):
-    if user_id in agent_active_users:
-        agent_active_users.remove(user_id)
-    r.delete(f"{REDIS_KEY_PREFIX}{user_id}")
-
+    agent_active_users.discard(user_id)
+    clear_history(user_id)
     return {"message": f"Agent session ended and memory cleared for {user_id}"}
+
 
 # Add Single FAQ API
 @router.post("/add_faq")
