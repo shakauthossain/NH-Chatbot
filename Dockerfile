@@ -8,12 +8,19 @@ ENV PYTHONUNBUFFERED=1
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
+# Create Hugging Face cache directory and set permissions
+RUN mkdir -p /home/appuser/.cache/huggingface \
+    && chown -R appuser:appuser /home/appuser/.cache
+
+# Set Hugging Face cache environment variable
+ENV HF_HOME=/home/appuser/.cache/huggingface
+
 # Set working directory
 WORKDIR /app
 
 # Copy and install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copy the entire application
 COPY . .
