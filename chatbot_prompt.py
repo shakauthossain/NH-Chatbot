@@ -58,12 +58,41 @@ Does this message express intent to schedule a meeting?
         return False
     
 def detect_agent_intent(user_input: str) -> bool:
+    # Check for explicit agent/human requests first
+    explicit_keywords = [
+        "agent", "human", "person", "support", "representative", 
+        "speak to someone", "talk to someone", "connect me", 
+        "escalate", "supervisor", "staff", "employee"
+    ]
+    
+    input_lower = user_input.lower()
+    
+    # If it contains explicit keywords, it's likely an agent request
+    if any(keyword in input_lower for keyword in explicit_keywords):
+        return True
+    
+    # Don't use AI for simple greetings - they're NOT agent requests
+    simple_greetings = [
+        "hi", "hello", "hey", "good morning", "good afternoon", 
+        "good evening", "greetings", "howdy", "what's up"
+    ]
+    
+    # If it's just a simple greeting, don't redirect to agent
+    if input_lower.strip() in simple_greetings:
+        return False
+    
+    # For other cases, use AI but with more specific prompt
     prompt = f"""
-You are an intent detection engine. Does this message mean the user wants to talk to a human agent?
+You are an intent detection engine. Does this message SPECIFICALLY request to speak with a human agent, support person, or representative?
 
-Respond with only "yes" or "no".
+Only return "yes" if the user is EXPLICITLY asking for human help, not just asking general questions or needing assistance.
+
+Simple greetings like "hi", "hello" should be "no".
+General questions like "I need help with..." should be "no" unless they specifically mention wanting a human.
 
 Message: "{user_input}"
+
+Answer only "yes" or "no":
 """
     try:
         result = gemini_model.generate_content(prompt)
