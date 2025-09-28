@@ -111,7 +111,7 @@ async def telegram_webhook(request: Request):
             if reply_to_id in message_map:
                 user_id = message_map.pop(reply_to_id)  # one-shot map
                 print(f"[webhook] Matched reply_to_id in message_map: {reply_to_id} -> {user_id}")
-                # ⬇️ QUEUE the reply instead of overwriting
+                # QUEUE the reply instead of overwriting
                 user_replies[user_id].append({
                     "reply": text.strip(),
                     "from": from_user,

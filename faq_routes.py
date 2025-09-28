@@ -31,7 +31,7 @@ from pydantic import BaseModel, EmailStr
 
 #Calling Functions from other py files
 from faq_services import gemini_model, db, load_faqs, add_faq_to_csv, faq_path
-from chatbot_prompt import generate_prompt, detect_schedule_intent, detect_agent_intent
+from chatbot_prompt import generate_prompt, detect_schedule_intent, detect_agent_intent, detect_services_intent
 from telegram import send_to_telegram, pending_requests
 
 router = APIRouter()
@@ -57,11 +57,11 @@ try:
             retry_on_timeout=True,
         )
         r.ping()  # fail fast if unreachable
-        print("✅ Redis connected")
+        print("Redis connected")
     else:
-        print("ℹ️ REDIS_URL not set, using in-memory history")
+        print("REDIS_URL not set, using in-memory history")
 except Exception as e:
-    print(f"⚠️ Redis unavailable ({e}), using in-memory history")
+    print(f"Redis unavailable ({e}), using in-memory history")
     r = None
 
 agent_active_users = set()
@@ -123,7 +123,7 @@ def get_history(user_id):
             items = r.lrange(key, -MAX_HISTORY, -1)
             return [json.loads(x) for x in items]
         except Exception as e:
-            print(f"⚠️ Redis read failed: {e}; using fallback")
+            print(f"Redis read failed: {e}; using fallback")
     return _fallback_get(user_id)
 
 def update_history(user_id, role, content):
@@ -138,7 +138,7 @@ def update_history(user_id, role, content):
             pipe.execute()
             return
         except Exception as e:
-            print(f"⚠️ Redis write failed: {e}; using fallback")
+            print(f"Redis write failed: {e}; using fallback")
     _fallback_update(user_id, item)
 
 def clear_history(user_id):
@@ -147,7 +147,7 @@ def clear_history(user_id):
         try:
             r.delete(key)
         except Exception as e:
-            print(f"⚠️ Redis delete failed: {e}")
+            print(f"Redis delete failed: {e}")
     _fallback_histories.pop(user_id, None)
     _last_seen.pop(user_id, None)
     
@@ -169,7 +169,7 @@ async def ask_faq(request: QuestionRequest):
         send_to_telegram(query, user_id=user_id)
         return {
             "from_agent": True,
-            "message": "📨 Message sent to your agent. Please wait for their reply."
+            "answer": "Message sent to your agent. Please wait for their reply."
         }
 
     if detect_agent_intent(query):
@@ -188,7 +188,7 @@ async def ask_faq(request: QuestionRequest):
         return {
             "action": "connect_agent",
             "user_id": user_id,
-            "message": "✅ Connecting you to a human agent..."
+            "answer": "Connecting you to a human agent..."
         }
 
     # Detect scheduling
@@ -196,6 +196,45 @@ async def ask_faq(request: QuestionRequest):
         return {
             "action": "schedule_meeting",
             "answer": "Sure! Let's schedule your meeting. Please choose a date and time."
+        }
+
+    # Detect services inquiry
+    if detect_services_intent(query):
+        services_list = [
+            {
+                "name": "🌐 Web & App Development",
+                "description": "Custom websites and mobile applications tailored to your needs"
+            },
+            {
+                "name": "🎨 User Experience Design", 
+                "description": "Intuitive and engaging user interfaces that delight your customers"
+            },
+            {
+                "name": "📊 Strategy & Digital Marketing",
+                "description": "Data-driven marketing strategies to grow your business"
+            },
+            {
+                "name": "🎥 Video Production & Photography",
+                "description": "Professional visual content that tells your story"
+            },
+            {
+                "name": "🏷️ Branding & Communication",
+                "description": "Complete brand identity and messaging solutions"
+            },
+            {
+                "name": "🔍 Search Engine Optimization",
+                "description": "Get found online with our proven SEO strategies"
+            },
+            {
+                "name": "👥 Resource Augmentation",
+                "description": "Skilled professionals to extend your team capabilities"
+            }
+        ]
+
+        return {
+            "action": "services_inquiry",
+            "services": services_list,
+            "answer": "Here are our comprehensive services. Ready to transform your digital presence?"
         }
 
     # Prepare prompt with history

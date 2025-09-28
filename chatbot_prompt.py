@@ -99,3 +99,47 @@ Answer only "yes" or "no":
         return "yes" in result.text.strip().lower()
     except:
         return False
+
+def detect_services_intent(user_input: str) -> bool:
+    """Detect if user is asking about services offered by Notionhive"""
+    # Check for explicit service-related keywords
+    service_keywords = [
+        "services", "what do you do", "what do you offer", "what services",
+        "service list", "what can you help", "capabilities", "offerings",
+        "what do you provide", "what are your services", "list your services",
+        "tell me about your services", "services you offer", "what kind of services",
+        "services available", "service offerings", "what services do you have"
+    ]
+    
+    input_lower = user_input.lower().strip()
+    
+    # Direct keyword match
+    if any(keyword in input_lower for keyword in service_keywords):
+        return True
+    
+    # Use AI for more complex cases
+    prompt = f"""
+You are an intent detection engine. Does this message ask about what services, capabilities, or offerings a company provides?
+
+Examples of service inquiries:
+- "What services do you offer?"
+- "Tell me about your services"
+- "What can you help me with?"
+- "What do you do?"
+- "What are your capabilities?"
+
+Examples of NON-service inquiries:
+- "How much does it cost?"
+- "Can I schedule a meeting?"
+- "Hi"
+- "Tell me about your company"
+
+Message: "{user_input}"
+
+Answer only "yes" or "no":
+"""
+    try:
+        result = gemini_model.generate_content(prompt)
+        return "yes" in result.text.strip().lower()
+    except:
+        return False
