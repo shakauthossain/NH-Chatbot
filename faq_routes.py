@@ -195,7 +195,7 @@ async def ask_faq(request: QuestionRequest):
     if detect_schedule_intent(query):
         return {
             "action": "schedule_meeting",
-            "message": "Sure! Let's schedule your meeting. Please choose a date and time."
+            "answer": "Sure! Let's schedule your meeting. Please choose a date and time."
         }
 
     # Prepare prompt with history
