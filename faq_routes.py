@@ -165,31 +165,31 @@ async def ask_faq(request: QuestionRequest):
     user_id = request.user_id or f"user_{int(time.time()*1000)}"
 
     # Detect agent intent
-    if user_id in agent_active_users:
-        send_to_telegram(query, user_id=user_id)
-        return {
-            "from_agent": True,
-            "answer": "Message sent to your agent. Please wait for their reply."
-        }
+    # if user_id in agent_active_users:
+    #     send_to_telegram(query, user_id=user_id)
+    #     return {
+    #         "from_agent": True,
+    #         "answer": "Message sent to your agent. Please wait for their reply."
+    #     }
 
-    if detect_agent_intent(query):
-        agent_active_users.add(user_id)
+    # if detect_agent_intent(query):
+    #     agent_active_users.add(user_id)
 
-        history = get_history(user_id)
-        history_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in history[-5:])
-        summary_msg = f"New agent request from user: {user_id}*\n\n Chat Summary:\n{history_text}"
+    #     history = get_history(user_id)
+    #     history_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in history[-5:])
+    #     summary_msg = f"New agent request from user: {user_id}*\n\n Chat Summary:\n{history_text}"
 
-        # First send summary
-        send_to_telegram(summary_msg, user_id=user_id)
+    #     # First send summary
+    #     send_to_telegram(summary_msg, user_id=user_id)
 
-        # Then send the live message
-        send_to_telegram(query, user_id=user_id)
+    #     # Then send the live message
+    #     send_to_telegram(query, user_id=user_id)
 
-        return {
-            "action": "connect_agent",
-            "user_id": user_id,
-            "answer": "Connecting you to a human agent..."
-        }
+    #     return {
+    #         "action": "connect_agent",
+    #         "user_id": user_id,
+    #         "answer": "Connecting you to a human agent..."
+    #     }
 
     # Detect scheduling
     if detect_schedule_intent(query):
@@ -234,7 +234,7 @@ async def ask_faq(request: QuestionRequest):
         return {
             "action": "services_inquiry",
             "services": services_list,
-            "answer": "Here are our comprehensive services. Ready to transform your digital presence?"
+            "answer429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 50\nPlease retry in 14.923478959s. [violations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_requests\"\n  quota_id: \"GenerateRequestsPerDayPerProjectPerModel-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.0-flash-exp\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n  quota_value: 50\n}\n, links {\n  description: \"Learn more about Gemini API quotas\"\n  url: \"https://ai.google.dev/gemini-api/docs/rate-limits\"\n}\n, retry_delay {\n  seconds: 14\n}\n]": "Here are our comprehensive services. Ready to transform your digital presence?"
         }
 
     # Prepare prompt with history
