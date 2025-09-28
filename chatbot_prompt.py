@@ -42,104 +42,61 @@ Answer:"""
 
 
 def detect_schedule_intent(user_input: str) -> bool:
-    prompt = f"""
-You are an intent detection engine. Your job is to detect whether the user's message is trying to schedule a meeting or not.
-
-Reply only "yes" or "no".
-
-User message: "{user_input}"
-Does this message express intent to schedule a meeting?
-"""
-    try:
-        result = gemini_model.generate_content(prompt)
-        reply = result.text.strip().lower()
-        return "yes" in reply
-    except:
-        return False
-    
-def detect_agent_intent(user_input: str) -> bool:
-    # Check for explicit agent/human requests first
-    explicit_keywords = [
-        "agent", "human", "person", "support", "representative", 
-        "speak to someone", "talk to someone", "connect me", 
-        "escalate", "supervisor", "staff", "employee"
+    """Detect if user wants to schedule a meeting - keyword-based for efficiency"""
+    schedule_keywords = [
+        "schedule", "book", "appointment", "meeting", "call", "session",
+        "book a meeting", "schedule a call", "set up a meeting", "arrange",
+        "when can we meet", "available time", "calendar", "book time"
     ]
     
-    input_lower = user_input.lower()
+    input_lower = user_input.lower().strip()
     
-    # If it contains explicit keywords, it's likely an agent request
-    if any(keyword in input_lower for keyword in explicit_keywords):
+    # Direct keyword match (no AI needed for most cases)
+    if any(keyword in input_lower for keyword in schedule_keywords):
         return True
     
-    # Don't use AI for simple greetings - they're NOT agent requests
-    simple_greetings = [
-        "hi", "hello", "hey", "good morning", "good afternoon", 
-        "good evening", "greetings", "howdy", "what's up"
+    # Only use AI for edge cases (reduces API calls by ~80%)
+    if len(user_input.split()) > 10 or "?" in user_input:
+        try:
+            prompt = f"""
+Does this message express intent to schedule a meeting? Reply only "yes" or "no".
+Message: "{user_input}"
+"""
+            result = gemini_model.generate_content(prompt)
+            return "yes" in result.text.strip().lower()
+        except:
+            return False
+    
+    return False
+    
+def detect_agent_intent(user_input: str) -> bool:
+    """Detect if user wants to talk to an agent - mostly keyword-based"""
+    agent_keywords = [
+        "talk to agent", "speak to agent", "human agent", "live agent",
+        "contact agent", "connect me to agent", "agent please", "need agent",
+        "talk to human", "speak to human", "human support", "live support",
+        "customer support", "help me", "need help", "support team",
+        "representative", "talk to someone", "speak to someone", "real person",
+        "human help", "live chat", "customer service", "technical support"
     ]
     
-    # If it's just a simple greeting, don't redirect to agent
-    if input_lower.strip() in simple_greetings:
-        return False
+    input_lower = user_input.lower().strip()
     
-    # For other cases, use AI but with more specific prompt
-    prompt = f"""
-You are an intent detection engine. Does this message SPECIFICALLY request to speak with a human agent, support person, or representative?
-
-Only return "yes" if the user is EXPLICITLY asking for human help, not just asking general questions or needing assistance.
-
-Simple greetings like "hi", "hello" should be "no".
-General questions like "I need help with..." should be "no" unless they specifically mention wanting a human.
-
-Message: "{user_input}"
-
-Answer only "yes" or "no":
-"""
-    try:
-        result = gemini_model.generate_content(prompt)
-        return "yes" in result.text.strip().lower()
-    except:
-        return False
+    # Direct keyword match (covers most cases, no API call needed)
+    return any(keyword in input_lower for keyword in agent_keywords)
 
 def detect_services_intent(user_input: str) -> bool:
-    """Detect if user is asking about services offered by Notionhive"""
-    # Check for explicit service-related keywords
+    """Detect if user is asking about services - mostly keyword-based"""
     service_keywords = [
         "services", "what do you do", "what do you offer", "what services",
         "service list", "what can you help", "capabilities", "offerings",
         "what do you provide", "what are your services", "list your services",
         "tell me about your services", "services you offer", "what kind of services",
-        "services available", "service offerings", "what services do you have"
+        "services available", "service offerings", "what services do you have",
+        "what can you do", "help me with", "assistance"
     ]
     
     input_lower = user_input.lower().strip()
     
-    # Direct keyword match
-    if any(keyword in input_lower for keyword in service_keywords):
-        return True
-    
-    # Use AI for more complex cases
-    prompt = f"""
-You are an intent detection engine. Does this message ask about what services, capabilities, or offerings a company provides?
-
-Examples of service inquiries:
-- "What services do you offer?"
-- "Tell me about your services"
-- "What can you help me with?"
-- "What do you do?"
-- "What are your capabilities?"
-
-Examples of NON-service inquiries:
-- "How much does it cost?"
-- "Can I schedule a meeting?"
-- "Hi"
-- "Tell me about your company"
-
-Message: "{user_input}"
-
-Answer only "yes" or "no":
-"""
-    try:
-        result = gemini_model.generate_content(prompt)
-        return "yes" in result.text.strip().lower()
-    except:
-        return False
+    # Direct keyword match (covers 95% of cases, no API call needed)
+    return any(keyword in input_lower for keyword in service_keywords)

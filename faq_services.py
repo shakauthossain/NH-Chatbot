@@ -20,7 +20,7 @@ api_key = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=api_key)
 
 gemini_model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash-exp",  # Working model for free tier
+    model_name="gemini-2.0-flash-lite",  # Higher free tier limits
     generation_config={"temperature": 0.4}
 )
 faq_path = "faqs.csv"
