@@ -31,7 +31,7 @@ from pydantic import BaseModel, EmailStr
 
 #Calling Functions from other py files
 from faq_services import gemini_model, db, load_faqs, add_faq_to_csv, faq_path
-from chatbot_prompt import generate_prompt, detect_schedule_intent, detect_agent_intent, detect_services_intent
+from chatbot_prompt import generate_prompt, detect_schedule_intent, detect_agent_intent, detect_services_intent, detect_specific_service_inquiry
 from telegram import send_to_telegram, pending_requests
 
 router = APIRouter()
@@ -198,7 +198,35 @@ async def ask_faq(request: QuestionRequest):
             "answer": "Sure! Let's schedule your meeting. Please choose a date and time."
         }
 
-    # Detect services inquiry
+    # Check for specific service inquiries first
+    is_specific_service, enhanced_query, service_name = detect_specific_service_inquiry(query)
+    if is_specific_service:
+        # Use the enhanced query to search FAQs for specific service information
+        try:
+            docs = db.similarity_search(enhanced_query, k=3)
+            context = "\n".join([doc.page_content for doc in docs])
+        except Exception as e:
+            print(f"FAQ search failed for specific service: {e}")
+            context = "No specific FAQ context available."
+        
+        # Prepare prompt for specific service inquiry
+        update_history(user_id, "user", query)
+        prompt = generate_prompt(context, f"Tell me about {service_name} services that Notionhive offers. {query}")
+        
+        # Call Gemini LLM
+        try:
+            response = gemini_model.generate_content(prompt)
+            answer = response.text.strip()
+            update_history(user_id, "bot", answer)
+            return {
+                "action": "specific_service_inquiry", 
+                "service": service_name,
+                "answer": answer
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Detect general services inquiry (show service list)
     if detect_services_intent(query):
         services_list = [
             {
@@ -234,13 +262,24 @@ async def ask_faq(request: QuestionRequest):
         return {
             "action": "services_inquiry",
             "services": services_list,
-            "answer429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 50\nPlease retry in 14.923478959s. [violations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_requests\"\n  quota_id: \"GenerateRequestsPerDayPerProjectPerModel-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.0-flash-exp\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n  quota_value: 50\n}\n, links {\n  description: \"Learn more about Gemini API quotas\"\n  url: \"https://ai.google.dev/gemini-api/docs/rate-limits\"\n}\n, retry_delay {\n  seconds: 14\n}\n]": "Here are our comprehensive services. Ready to transform your digital presence?"
+            "answer": "Here are our comprehensive services. Ready to transform your digital presence?"
         }
 
-    # Prepare prompt with history
+    # Search FAQ database for relevant context
+    try:
+        # Get relevant FAQ content from vector database
+        docs = db.similarity_search(query, k=3)  # Get top 3 most relevant FAQs
+        context = "\n".join([doc.page_content for doc in docs])
+    except Exception as e:
+        print(f"FAQ search failed: {e}")
+        context = "No specific FAQ context available."
+
+    # Prepare prompt with history and FAQ context
     update_history(user_id, "user", query)
     history = get_history(user_id)
-    prompt = build_prompt_from_history(history)
+    
+    # Generate prompt using FAQ context
+    prompt = generate_prompt(context, query)
 
     # Call Gemini LLM
     try:

@@ -18,7 +18,7 @@ Occasionally sprinkled with tasteful humor or smart quips (you’re sharp, not s
 
 * For all Notionhive-related questions (services, process, team, pricing, contact, case studies, etc.), search and respond using the official FAQs and website content at [https://notionhive.com](https://notionhive.com).
 * If the information isn’t found in your internal data and the question is relevant or critical, you may attempt a web search limited to notionhive.com.
-* If no answer is found, politely recommend the user visit the site directly or contact the Notionhive team.
+* If no answer is found, politely recommend the user to visit the site directly or contact the Notionhive team.
 * If the question is basic/general and not covered on the site (e.g., “What is digital marketing?”), you may briefly answer with factual, easy-to-understand info — but always steer the user back toward how Notionhive can help.
 
 ### Do’s and Don'ts:
@@ -29,7 +29,13 @@ Keep responses relevant and readable — no tech babble unless asked.
 If unsure, be honest — suggest checking the site or asking the team.
 Never invent details or claim things not listed on Notionhive’s site.
 Don’t answer personal, financial, or legal questions. That’s not your jam.
+Don't answer anything personal, financial, or legal related questions of Notionhive.
+Make sure no sensitive or private info is shared.
+Make sure no leads can be extracted from your responses.
 Avoid repetitive filler phrases or “As an AI...” language.
+Avoid add "bot:" in front of any of your responses. 
+Don't mention you are an AI model, rather mention confidently that you are NH Buddy, Notionhive's virtual assistant trained to help you.
+Don't frequently repeat that you are NH Buddy.
 
 You’re NH Buddy — the face of Notionhive’s brilliance and creativity. Show it.
 Do not return in markdown format, just in fantastic plain text.
@@ -85,18 +91,74 @@ def detect_agent_intent(user_input: str) -> bool:
     # Direct keyword match (covers most cases, no API call needed)
     return any(keyword in input_lower for keyword in agent_keywords)
 
+def detect_specific_service_inquiry(user_input: str) -> tuple:
+    """Detect if user is asking about a specific service and return the enhanced query"""
+    specific_services = {
+        "web development": "Web & App Development",
+        "app development": "Web & App Development", 
+        "mobile development": "Web & App Development",
+        "website development": "Web & App Development",
+        "web design": "Web & App Development",
+        "mobile app": "Web & App Development",
+        
+        "ui design": "User Experience Design",
+        "ux design": "User Experience Design", 
+        "user experience": "User Experience Design",
+        "user interface": "User Experience Design",
+        "design": "User Experience Design",
+        
+        "digital marketing": "Strategy & Digital Marketing",
+        "marketing": "Strategy & Digital Marketing",
+        "strategy": "Strategy & Digital Marketing",
+        "social media": "Strategy & Digital Marketing",
+        
+        "video production": "Video Production & Photography",
+        "photography": "Video Production & Photography",
+        "video": "Video Production & Photography",
+        "content creation": "Video Production & Photography",
+        
+        "branding": "Branding & Communication",
+        "brand identity": "Branding & Communication",
+        "logo design": "Branding & Communication",
+        "communication": "Branding & Communication",
+        
+        "seo": "Search Engine Optimization",
+        "search engine": "Search Engine Optimization",
+        "google ranking": "Search Engine Optimization",
+        
+        "resource augmentation": "Resource Augmentation",
+        "team extension": "Resource Augmentation",
+        "staff augmentation": "Resource Augmentation",
+        "developers": "Resource Augmentation"
+    }
+    
+    input_lower = user_input.lower().strip()
+    
+    for keyword, service_name in specific_services.items():
+        if keyword in input_lower:
+            # Create an enhanced query for better FAQ searching
+            enhanced_query = f"Tell me about {service_name} services of yours. What does Notionhive offer for {service_name}?"
+            return True, enhanced_query, service_name
+    
+    return False, None, None
+
 def detect_services_intent(user_input: str) -> bool:
-    """Detect if user is asking about services - mostly keyword-based"""
-    service_keywords = [
-        "services", "what do you do", "what do you offer", "what services",
+    """Detect if user is asking about general services list - mostly keyword-based"""
+    general_service_keywords = [
+        "what services", "list services", "what do you offer", "what do you do",
         "service list", "what can you help", "capabilities", "offerings",
-        "what do you provide", "what are your services", "list your services",
-        "tell me about your services", "services you offer", "what kind of services",
-        "services available", "service offerings", "what services do you have",
-        "what can you do", "help me with", "assistance"
+        "what do you provide", "what are your services", "services you offer", 
+        "what kind of services", "services available", "service offerings", 
+        "what services do you have", "show me services", "tell me about your services",
+        "list your services", "show services", "services of yours"
     ]
     
     input_lower = user_input.lower().strip()
     
-    # Direct keyword match (covers 95% of cases, no API call needed)
-    return any(keyword in input_lower for keyword in service_keywords)
+    # Check if it's a specific service inquiry first
+    is_specific, _, _ = detect_specific_service_inquiry(user_input)
+    if is_specific:
+        return False  # Don't treat specific service inquiries as general service requests
+    
+    # Check for general service list requests
+    return any(keyword in input_lower for keyword in general_service_keywords)

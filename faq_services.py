@@ -3,16 +3,12 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 import uuid
-
-#Langchain Packages
-from langchain_community.document_loaders import CSVLoader
-from langchain_community.vectorstores import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings as SentenceTransformerEmbeddings
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 #Gen AI Packages
 import google.generativeai as genai
-
-os.environ["HF_HOME"] = "/tmp/hf_cache" 
 
 # Environment setup
 load_dotenv()
@@ -20,21 +16,73 @@ api_key = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=api_key)
 
 gemini_model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash-lite",  # Higher free tier limits
+    model_name="gemini-2.0-flash-lite",  # Uses free tier quotas efficiently
     generation_config={"temperature": 0.4}
 )
 faq_path = "faqs.csv"
 
+class SimpleFAQDB:
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer(stop_words='english', max_features=1000)
+        self.faq_data = None
+        self.faq_vectors = None
+        self.load_faqs()
+    
+    def load_faqs(self):
+        """Load FAQs from CSV and create TF-IDF vectors"""
+        try:
+            df = pd.read_csv(faq_path, encoding="utf-8")
+            if df.empty:
+                print("Warning: FAQ CSV is empty")
+                return
+                
+            self.faq_data = df
+            # Combine prompt and response for better semantic search
+            combined_text = df['prompt'] + ' ' + df['response']
+            self.faq_vectors = self.vectorizer.fit_transform(combined_text)
+            print(f"Loaded {len(df)} FAQs into database")
+        except Exception as e:
+            print(f"Error loading FAQs: {e}")
+            self.faq_data = pd.DataFrame(columns=['prompt', 'response', 'id'])
+            self.faq_vectors = None
+    
+    def similarity_search(self, query, k=3):
+        """Search for similar FAQs"""
+        if self.faq_vectors is None or self.faq_data is None or self.faq_data.empty:
+            return []
+        
+        try:
+            query_vector = self.vectorizer.transform([query])
+            similarities = cosine_similarity(query_vector, self.faq_vectors).flatten()
+            
+            # Get top k results
+            top_indices = similarities.argsort()[-k:][::-1]
+            
+            results = []
+            for idx in top_indices:
+                if similarities[idx] > 0.1:  # Minimum similarity threshold
+                    faq_row = self.faq_data.iloc[idx]
+                    # Create document-like object
+                    doc = type('Document', (), {
+                        'page_content': f"Q: {faq_row['prompt']}\nA: {faq_row['response']}",
+                        'metadata': {'similarity': similarities[idx]}
+                    })()
+                    results.append(doc)
+            
+            return results
+        except Exception as e:
+            print(f"Error in similarity search: {e}")
+            return []
+
+# Create global database instance
+db = SimpleFAQDB()
+
 # Load FAQ DB
 def load_faqs():
-    loader = CSVLoader(faq_path, encoding="utf-8")
-    docs = loader.load()
-    embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    if not docs:
-        return Chroma.from_texts(["empty"], embeddings, collection_name="visaverse_empty_db")
-    return Chroma.from_documents(docs, embeddings)
-
-db = load_faqs()
+    """Reload FAQs into the database"""
+    global db
+    db = SimpleFAQDB()
+    return db
 
 # Add FAQ entry to CSV
 def add_faq_to_csv(question: str, answer: str):
