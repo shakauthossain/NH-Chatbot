@@ -150,7 +150,9 @@ def detect_services_intent(user_input: str) -> bool:
         "what do you provide", "what are your services", "services you offer", 
         "what kind of services", "services available", "service offerings", 
         "what services do you have", "show me services", "tell me about your services",
-        "list your services", "show services", "services of yours"
+        "list your services", "show services", "services of yours", "view our services",
+        "view services", "view your services", "see services", "see your services",
+        "see our services", "explore services", "browse services"
     ]
     
     input_lower = user_input.lower().strip()
