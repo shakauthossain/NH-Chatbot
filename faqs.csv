@@ -1,5 +1,204 @@
-prompt,response,id
-What services does Notionhive offer?,"Notionhive provides a wide range of digital solutions, including:
+id,prompt,response
+d8103244-8261-4bed-b1e2-9adfab311d79,What services does Notionhive offer for web development?,"We offer comprehensive web development services including:
+
+- Custom websites and web applications
+- E-commerce platforms and online stores  
+- Landing pages and portfolio sites
+- Responsive design for all devices
+
+**Technologies we specialize in:**
+- React, Next.js, Node.js
+- HTML5, CSS3, JavaScript
+- Modern frameworks and libraries
+
+We can help you build fast, user-friendly websites tailored to your business needs. Would you like to schedule a consultation to discuss your web development project?"
+ce93374d-67c3-40ed-900e-e28fdb1fffb5,What mobile app development services do you provide?,"We develop high-quality mobile applications for:
+
+**Platforms:**
+- iOS (iPhone & iPad)
+- Android smartphones & tablets
+- Cross-platform solutions
+
+**Technologies we use:**
+- React Native for cross-platform apps
+- Flutter for high-performance apps
+- Native development when needed
+
+We create user-friendly, performant mobile apps that engage your audience and drive business growth. Let's discuss your mobile app idea and bring it to life!"
+590b3a5c-9c8d-4a5c-ba83-171c854e6d15,Do you build e-commerce websites and online stores?,"Yes! We build powerful e-commerce solutions that drive sales and enhance customer experience:
+
+**E-commerce Services:**
+- Custom online stores
+- Payment gateway integration
+- Inventory management systems
+- Shopping cart development
+- Order tracking and management
+
+**Platforms we work with:**
+- WooCommerce
+- Shopify
+- Custom e-commerce solutions
+
+Ready to take your business online or upgrade your existing store?"
+c4543f2e-1b5c-42e1-8f22-67c9b094b871,What UI/UX design services do you offer?,"Our design team creates stunning and intuitive user interfaces that enhance user experience and drive engagement:
+
+**Design Services:**
+- User research and analysis
+- Wireframing and prototyping
+- Visual design and branding
+- Usability testing
+- Mobile and web interface design
+
+**Tools we use:**
+- Figma for collaborative design
+- Adobe Creative Suite
+- User testing platforms
+
+We conduct thorough research and testing to ensure optimal results for your users."
+26601f21-ad3b-45ca-a672-748be556c1c0,What digital marketing services does Notionhive provide?,"Boost your online presence with our comprehensive digital marketing services:
+
+**Marketing Services:**
+- SEO optimization
+- Social media marketing
+- Google Ads management
+- Facebook & Instagram advertising
+- Content marketing strategy
+- Analytics and reporting
+
+**Our Approach:**
+- Data-driven strategies
+- Maximum ROI focus
+- Targeted audience reach
+- Performance tracking
+
+Our expert team helps your business reach the right audience at the right time."
+980e7fa5-023c-4e9a-be3b-fc1025948ff0,Do you provide cloud solutions and DevOps services?,"Transform your business with our cloud solutions expertise:
+
+**Cloud Services:**
+- Cloud infrastructure setup
+- Migration services
+- Serverless architecture
+- DevOps implementation
+- Ongoing cloud management
+
+**Platforms we work with:**
+- AWS (Amazon Web Services)
+- Microsoft Azure
+- Google Cloud Platform
+
+Our solutions ensure scalability, security, and cost-effectiveness for your applications and data."
+b19292fd-d679-4fc6-9f99-4d59c3f397f0,What consulting services do you offer?,"Get expert guidance with our technical consulting services:
+
+**Consulting Services:**
+- Technology strategy consulting
+- Project management
+- Architecture planning
+- Technology stack recommendations
+- Implementation guidance
+- Code reviews and audits
+
+**Our Expertise:**
+- Strategic planning
+- Risk assessment
+- Best practices implementation
+- Performance optimization
+
+Our experienced consultants help you make informed decisions and ensure successful project delivery from concept to completion."
+4e7cbb8f-8aeb-4b43-9f9a-b87b5fdd8580,What AI and machine learning services do you provide?,"Leverage the power of AI with our comprehensive artificial intelligence solutions:
+
+**AI Services:**
+- Custom chatbots and virtual assistants
+- Automation systems
+- Natural language processing (NLP)
+- Computer vision solutions
+- Machine learning models
+- Data analysis and insights
+
+**Benefits:**
+- Process automation
+- Data-driven insights
+- Intelligent applications
+- Enhanced efficiency
+
+Our AI expertise helps businesses automate processes, gain insights from data, and create intelligent applications that drive innovation."
+e54f47fc-e1ce-43d6-b9d4-9fa59abc63e1,Can you build a website for my business?,"Absolutely! We specialize in building custom websites for businesses of all sizes. Whether you need a simple landing page, a complex web application, or an e-commerce store, our team can create a solution tailored to your specific needs using modern technologies like React, Next.js, and more."
+2527c32d-a6b9-4300-a4c6-512fa5459bb1,Do you develop mobile apps?,"Yes, we develop mobile applications for both iOS and Android platforms. We use technologies like React Native and Flutter for cross-platform development, as well as native development when needed. We focus on creating user-friendly, high-performance mobile apps."
+ab2932b7-27bc-4175-99a4-e86bad59cfa0,What technologies do you work with?,"We work with a wide range of modern technologies including React, Next.js, Node.js, Python, Flutter, React Native, WordPress, Shopify, AWS, Azure, Google Cloud, and many more. We stay updated with the latest technologies to provide the best solutions for our clients."
+9f86747e-d8c5-49c3-9602-1784905f4f2c,How much do your services cost?,"Our pricing varies depending on the project scope, complexity, and requirements. We offer competitive rates and provide detailed quotes after understanding your specific needs. Contact us for a free consultation and personalized quote."
+94ac1a03-6fbb-44b4-9628-c957f9866fac,How long does it take to complete a project?,"Project timelines depend on the complexity and scope of work. A simple website might take 2-4 weeks, while a complex web application or mobile app could take 2-6 months. We provide detailed timelines during the project planning phase."
+08d20c29-e877-4f39-bbd4-34b73fe96751,What video production and photography services do you offer?,"We create compelling visual content that tells your story and engages your audience:
+
+**Video Production Services:**
+- Corporate videos and commercials
+- Product demonstration videos
+- Social media video content
+- Event coverage and documentation
+- Animation and motion graphics
+- Video editing and post-production
+
+**Photography Services:**
+- Product photography
+- Corporate headshots and team photos
+- Event photography
+- Brand and lifestyle photography
+- E-commerce product shoots
+
+Our creative team delivers high-quality visual content that elevates your brand and connects with your audience."
+504f272b-4d9a-48e2-a10e-ef8f1863dde6,Do you provide branding and communication services?,"Yes! We help businesses build strong brand identities and effective communication strategies:
+
+**Branding Services:**
+- Logo design and brand identity
+- Brand strategy and positioning
+- Visual identity systems
+- Brand guidelines and standards
+- Rebranding and brand refresh
+- Brand messaging and voice
+
+**Communication Services:**
+- Content strategy and copywriting
+- Marketing collateral design
+- Social media content creation
+- Email marketing campaigns
+- Public relations support
+
+We create cohesive brand experiences that resonate with your target audience and differentiate you from competitors."
+01224398-249c-473d-a0c5-6b14ad267a48,What SEO services do you provide?,"Boost your online visibility and drive organic traffic with our comprehensive SEO services:
+
+**SEO Services:**
+- Keyword research and analysis
+- On-page SEO optimization
+- Technical SEO audits and fixes
+- Content optimization and strategy
+- Link building and outreach
+- Local SEO for businesses
+- SEO performance tracking and reporting
+
+**Our SEO Approach:**
+- Data-driven strategies
+- White-hat techniques only
+- Continuous monitoring and optimization
+- Transparent reporting and insights
+
+Our proven SEO strategies help your business rank higher in search results and attract more qualified leads."
+9686b95a-a8e2-4704-84e0-d9f650f26a54,Do you offer resource augmentation services?,"Absolutely! We provide skilled professionals to extend your team capabilities and accelerate your projects:
+
+**Resource Augmentation Services:**
+- Dedicated developers and designers
+- Project-based team extensions
+- Specialized skill sets on-demand
+- Short-term and long-term engagements
+- Remote and on-site professionals
+- Quality assurance and testing specialists
+
+**Our Professionals:**
+- Full-stack developers
+- Frontend and backend specialists
+- UI/UX designers
+- DevOps engineers
+- QA testers and analysts
+
+Scale your team quickly with our experienced professionals who integrate seamlessly with your existing workflows."
+19856078-4320-433b-b399-98140344aa5f,What services does Notionhive offer?,"Notionhive provides a wide range of digital solutions, including:
 
 Custom web and mobile app development
 UI/UX design, branding, and communications
@@ -9,8 +208,8 @@ SEO
 Digital Illustration
 Resource augmentation (on-demand tech talent)
 Video production 
-Photography",f1cd7ecd-e5f0-4776-95bf-3444e508b487
-Where is Notionhive located?,"They have offices in:
+Photography"
+a0477583-8579-4f75-ad4a-96dd3858f69b,Where is Notionhive located?,"They have offices in:
 
 Dhaka, Bangladesh
 Address: Level 3, House 22 Road No. 20, Dhaka 1230
@@ -18,31 +217,31 @@ Phone: 01404-474990
 
 
 Ottawa, Canada
-notionhive.com",61057533-26c1-4d7e-9d2a-8e54e824579e
-How experienced is the Notionhive team?,"55+ experts
+notionhive.com"
+0c802c0c-4f0d-40b7-bc7e-4c6980bd8448,How experienced is the Notionhive team?,"55+ experts
 
 
 15+ years of combined experience
 
 
-1,500+ projects completed globally",9e33969f-c2da-475d-b7dc-2b4db44da7e8
-Which industries and clients have they worked with?,"We’ve partnered with global brands like:
+1,500+ projects completed globally"
+d2653e6c-0ea6-4ce3-bf6c-018d88c2af5d,Which industries and clients have they worked with?,"We’ve partnered with global brands like:
 
-British Council, Telenor, Grameenphone, Miniso, Nestlé, Lafarge , United Group, ACI, and Etc.",47527269-3002-486b-993e-826c15a239d4
-How can I get started or request a quote?,"Fill out the Contact Us form with:
+British Council, Telenor, Grameenphone, Miniso, Nestlé, Lafarge , United Group, ACI, and Etc."
+a8293a9c-5820-42cc-b468-662155880356,How can I get started or request a quote?,"Fill out the Contact Us form with:
 
-https://notionhive.com/contact-us",b87ce090-11d7-4ae1-8a0a-3d96ece712b8
-Can I see examples of their work?,"Yes! Sure, please visit for details- 
+https://notionhive.com/contact-us"
+4cb2ea6c-f5c8-4f98-b549-c73cd514428e,Can I see examples of their work?,"Yes! Sure, please visit for details- 
 
-https://notionhive.com/our-work",5d6bc88e-df7f-497d-8984-a27325b45da9
-What makes Notionhive stand out?,"Strategic thinking tailored to your needs
+https://notionhive.com/our-work"
+cd828daa-a9fc-4687-bc7c-68cd8ada8961,What makes Notionhive stand out?,"Strategic thinking tailored to your needs
 
 
 On-time delivery with consistent quality
 
 
-Clear, personal communication and strong client relationships",d4520f93-febb-4988-a679-fb6138a69e2b
-What recognitions and awards have they received?,"Web Excellence Awards (Website Design 2023; Advertising & Marketing + Video/Podcast 2022)
+Clear, personal communication and strong client relationships"
+ad063c9c-5582-4e24-8b98-204e3edd9349,What recognitions and awards have they received?,"Web Excellence Awards (Website Design 2023; Advertising & Marketing + Video/Podcast 2022)
 
 
 Clutch Global Award 2023
@@ -51,15 +250,15 @@ Clutch Global Award 2023
 Recognized by Ads of the World 2023
 
 
-BBB A+ accreditation",f6f415dd-7cfc-4306-901d-ce8f2c2fe280
-What is the team culture like?,"Creative, collaborative, and growth-oriented
+BBB A+ accreditation"
+1a14b422-fbf8-40c2-8722-f7e386b49528,What is the team culture like?,"Creative, collaborative, and growth-oriented
 
 
 Focus on work-life balance, wellness, and insurance benefits
 
 
-Offers hands-on learning and career developme",e3e8055b-2f90-41f9-a1f1-2db6b4be1406
-How does Notionhive handle user data/privacy?,"They collect and use personal info (e.g., name, email, IP) to support services and communication. They employ analytics tools like Google Analytics and Facebook Pixel. Data is retained as needed and they ensure lawful, secure handling.",e0fc8d95-db90-41b9-919f-5e3e5035890c
-How can I apply for a job or join Notionhive?,"Visit the Careers page to view open roles, learn about the culture, and apply. They actively hire in areas like design, development, marketing, and video production
+Offers hands-on learning and career developme"
+461bd326-2660-4ba7-a24d-2939ead05e70,How does Notionhive handle user data/privacy?,"They collect and use personal info (e.g., name, email, IP) to support services and communication. They employ analytics tools like Google Analytics and Facebook Pixel. Data is retained as needed and they ensure lawful, secure handling."
+5ac0c1b4-f19f-4341-8868-94ce3969c57f,How can I apply for a job or join Notionhive?,"Visit the Careers page to view open roles, learn about the culture, and apply. They actively hire in areas like design, development, marketing, and video production
 
-https://notionhive.com/careers",d1877c1b-c682-4116-8dcf-0b176d245836
+https://notionhive.com/careers"
