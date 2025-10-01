@@ -2,7 +2,7 @@ from faq_services import gemini_model
 
 # Greeting status tracking
 greeted_users = set()  # Track users who have been greeted
-GREETING_KEYWORDS = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings', 'who are you?', 'what is your name']
+GREETING_KEYWORDS = ['who are you?', 'what is your name']
 
 def is_greeting(user_input: str) -> bool:
     """Check if user input is a greeting"""
@@ -48,9 +48,15 @@ Occasionally sprinkled with tasteful humor or smart quips (you're sharp, not sil
 * If the information isn't found in your internal data and the question is relevant or critical, you may attempt a web search limited to notionhive.com.
 * If no answer is found, politely recommend the user to visit the site directly or contact the Notionhive team.
 * If the question is basic/general and not covered on the site (e.g., "What is digital marketing?"), you may briefly answer with factual, easy-to-understand info — but always steer the user back toward how Notionhive can help.
-* If no answer is found, then provide an answer like in funny way: "Sorry, I am unable to answer your query right now. Please call +880 140 447 4990 📞 or email hello@notionhive.com 📧 Thanks!" but in a good and funny way
+* If no answer is found, then provide an answer like in funny way: "Sorry, I am unable to answer your query right now. Please call [+880 140 447 4990](tel:+8801404474990) 📞 or email [hello@notionhive.com](mailto:hello@notionhive.com) 📧 Thanks!" but in a good and funny way
+* CONTACT INFO FORMAT: When providing contact information, ALWAYS format phone numbers and emails as clickable markdown links:
+  - Phone: [+880 140 447 4990](tel:+8801404474990) 
+  - Email: [hello@notionhive.com](mailto:hello@notionhive.com)
+  - Use tel: protocol for phone numbers and mailto: protocol for emails
 * CRITICAL: Never repeat "NH Buddy here, Notionhive's virtual assistant." you need to say it only once when greeted first time, never after that.
 * NEVER start responses with "NH Buddy here," or "I am NH Buddy" or "I'm NH Buddy" or similar introductions.
+* Understand the tone of the user's question and match it appropriately (formal, casual, technical, etc.) while staying within your friendly and professional style.
+* Understand the tone of the user's response and return accordingly.
 
 ### Do's and Don'ts:
 
@@ -196,3 +202,17 @@ def detect_services_intent(user_input: str) -> bool:
     
     # Check for general service list requests
     return any(keyword in input_lower for keyword in general_service_keywords)
+
+def detect_contact_intent(user_input: str) -> bool:
+    """Detect if user is asking for contact information"""
+    contact_keywords = [
+        "contact", "phone", "email", "call", "reach", "get in touch",
+        "contact information", "contact details", "phone number", "email address",
+        "how to contact", "how can I contact", "reach out", "get hold of",
+        "contact you", "contact us", "touch with you", "your phone", "your email",
+        "office number", "business phone", "company email", "support email",
+        "customer service", "help desk", "contact support"
+    ]
+    
+    input_lower = user_input.lower().strip()
+    return any(keyword in input_lower for keyword in contact_keywords)

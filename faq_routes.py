@@ -31,7 +31,7 @@ from pydantic import BaseModel, EmailStr
 
 #Calling Functions from other py files
 from faq_services import gemini_model, db, load_faqs, add_faq_to_csv, faq_path
-from chatbot_prompt import detect_schedule_intent, detect_agent_intent, detect_services_intent, detect_specific_service_inquiry, enhanced_generate_prompt
+from chatbot_prompt import detect_schedule_intent, detect_agent_intent, detect_services_intent, detect_specific_service_inquiry, detect_contact_intent, enhanced_generate_prompt
 from telegram import send_to_telegram, pending_requests
 
 router = APIRouter()
@@ -202,6 +202,23 @@ async def ask_faq(request: QuestionRequest):
         return {
             "action": "schedule_meeting",
             "answer": "Sure! Let's schedule your meeting. Please choose a date and time."
+        }
+
+    # Detect contact requests
+    if detect_contact_intent(query):
+        contact_response = """Here's how you can reach us:
+
+**Phone:** [+880 140 447 4990](tel:+8801404474990) 📞
+
+**Email:** [hello@notionhive.com](mailto:hello@notionhive.com) 📧
+
+Feel free to call or email us anytime!"""
+        
+        update_history(user_id, "user", query)
+        update_history(user_id, "bot", contact_response)
+        return {
+            "action": "contact_info",
+            "answer": contact_response
         }
 
     # Check for specific service inquiries first
