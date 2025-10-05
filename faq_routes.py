@@ -32,7 +32,7 @@ from pydantic import BaseModel, EmailStr
 #Calling Functions from other py files
 from faq_services import gemini_model, db, load_faqs, add_faq_to_csv, faq_path
 from chatbot_prompt import detect_schedule_intent, detect_agent_intent, detect_services_intent, detect_specific_service_inquiry, detect_contact_intent, enhanced_generate_prompt
-from telegram import send_to_telegram, pending_requests
+from telegram import send_to_telegram, send_callback_to_telegram, pending_requests
 
 router = APIRouter()
 
@@ -94,6 +94,14 @@ class MeetingRequest(BaseModel):
     summary: Optional[str] = None
     description: Optional[str] = None
     guest_emails: Optional[List[EmailStr]] = None
+
+# Callback request model for contact inquiries
+class CallbackRequest(BaseModel):
+    name: str
+    phone: str
+    preferred_time: Optional[str] = None
+    email: Optional[EmailStr] = None
+    message: Optional[str] = None
     
 def get_history(user_id):
     key = f"{REDIS_KEY_PREFIX}{user_id}"
@@ -206,19 +214,16 @@ async def ask_faq(request: QuestionRequest):
 
     # Detect contact requests
     if detect_contact_intent(query):
-        contact_response = """Here's how you can reach us:
-
-**Phone:** [+880 140 447 4990](tel:+8801404474990) 📞
-
-**Email:** [hello@notionhive.com](mailto:hello@notionhive.com) 📧
-
-Feel free to call or email us anytime!"""
-        
-        update_history(user_id, "user", query)
-        update_history(user_id, "bot", contact_response)
         return {
-            "action": "contact_info",
-            "answer": contact_response
+            "action": "contact_request",
+            "contact_info": {
+                "phone": "+880 140 447 4990",
+                "phone_link": "tel:+8801404474990",
+                "email": "hello@notionhive.com",
+                "email_link": "mailto:hello@notionhive.com"
+            },
+            "answer": "Here's how you can reach us:\n\n**Phone:** [+880 140 447 4990](tel:+8801404474990) 📞\n\n**Email:** [hello@notionhive.com](mailto:hello@notionhive.com) 📧\n\nWould you like us to call you back? We'd be happy to reach out to you directly! Just say **'yes'** and I'll get your details to arrange a callback!",
+            "callback_offer": True
         }
 
     # Check for specific service inquiries first
@@ -326,6 +331,47 @@ def end_agent_session(user_id: str):
     clear_history(user_id)
     return {"message": f"Agent session ended and memory cleared for {user_id}"}
 
+# Callback request API
+@router.post("/request-callback")
+async def request_callback(request: CallbackRequest):
+    try:
+        # Here you can add logic to save the callback request to a database
+        # or send notification to your team (email, Slack, etc.)
+        
+        # For now, we'll just return a success response
+        # You can extend this to integrate with your CRM or notification system
+        
+        # Generate reference ID
+        reference_id = str(uuid.uuid4())[:8]
+        
+        callback_data = {
+            "name": request.name,
+            "phone": request.phone,
+            "preferred_time": request.preferred_time,
+            "email": request.email,
+            "message": request.message,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "status": "pending",
+            "reference_id": reference_id
+        }
+        
+        # Log the callback request (you can replace this with actual database storage)
+        print(f"New callback request: {callback_data}")
+        
+        # Send callback request to Telegram
+        telegram_sent = send_callback_to_telegram(callback_data)
+        if telegram_sent:
+            print("Callback request sent to Telegram successfully!")
+        else:
+            print("Failed to send callback request to Telegram")
+        
+        return {
+            "message": "Thank you! We've received your callback request and will reach out to you soon.",
+            "status": "success",
+            "reference_id": reference_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Add Single FAQ API
 @router.post("/add_faq")

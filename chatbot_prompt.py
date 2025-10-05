@@ -224,7 +224,8 @@ def detect_contact_intent(user_input: str) -> bool:
     contact_keywords = [
         "contact", "phone", "email", "call", "reach", "get in touch",
         "contact information", "contact details", "phone number", "email address",
-        "how to contact", "how can I contact", "reach out", "get hold of",
+        "how to contact", "how can I contact", "reach out", "get hold of", "Connect",
+        "get in contact", "contacting", "call me", "email me", "Want to connect"
         "contact you", "contact us", "touch with you", "your phone", "your email",
         "office number", "business phone", "company email", "support email",
         "customer service", "help desk", "contact support"

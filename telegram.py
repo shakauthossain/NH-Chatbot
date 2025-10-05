@@ -61,6 +61,46 @@ def send_to_telegram(message: str, user_id: str = "anonymous") -> bool:
         print("Error in send_to_telegram:", str(e))
         return False
 
+# Send callback request notification to Telegram
+def send_callback_to_telegram(callback_data: dict) -> bool:
+    try:
+        # Format the callback request message
+        phone = callback_data.get('phone', 'N/A')
+        # Create clickable phone number if valid
+        phone_display = f"[{phone}](tel:{phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')})" if phone != 'N/A' else 'N/A'
+        
+        message = (
+            "📞 *NEW CALLBACK REQUEST*\n"
+            "═══════════════════════\n\n"
+            f"👤 *Name:* {callback_data.get('name', 'N/A')}\n"
+            f"📱 *Phone:* {phone_display}\n"
+            f"⏰ *Preferred Time:* {callback_data.get('preferred_time', 'Any time')}\n"
+            f"💬 *Message:* {callback_data.get('message', 'No message provided')}\n"
+            f"🆔 *Reference ID:* {callback_data.get('reference_id', 'N/A')}\n"
+            f"📅 *Timestamp:* {callback_data.get('timestamp', 'N/A')}\n\n"
+            "🔔 *Please call this customer back as soon as possible!*"
+        )
+        
+        payload = {
+            "chat_id": int(AGENT_CHAT_ID),
+            "text": message,
+            "disable_web_page_preview": True,
+            "parse_mode": "Markdown"  # Enable markdown formatting
+        }
+        
+        url = f"{TELEGRAM_API_BASE}/sendMessage"
+        resp = requests.post(url, json=payload, timeout=10)
+
+        print("Sending callback request to Telegram...")
+        print("Payload:", payload)
+        print("Telegram response:", resp.status_code, resp.text)
+
+        return resp.ok
+
+    except Exception as e:
+        print("Error in send_callback_to_telegram:", str(e))
+        return False
+
 def _extract_user_tag(text: str) -> str | None:
     if not text:
         return None
