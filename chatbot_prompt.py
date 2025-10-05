@@ -167,7 +167,23 @@ def detect_specific_service_inquiry(user_input: str) -> tuple:
         "resource augmentation": "Resource Augmentation",
         "team extension": "Resource Augmentation",
         "staff augmentation": "Resource Augmentation",
-        "developers": "Resource Augmentation"
+        "developers": "Resource Augmentation",
+        
+        "ai": "AI Solutions",
+        "artificial intelligence": "AI Solutions",
+        "ai solutions": "AI Solutions",
+        "ai development": "AI Solutions",
+        "machine learning": "AI Solutions",
+        "ml": "AI Solutions",
+        "chatbot": "AI Solutions",
+        "ai integration": "AI Solutions",
+        "ai applications": "AI Solutions",
+        "intelligent systems": "AI Solutions",
+        "automation": "AI Solutions",
+        "ai consulting": "AI Solutions",
+        "data science": "AI Solutions",
+        "predictive analytics": "AI Solutions",
+        "ai strategy": "AI Solutions"
     }
     
     input_lower = user_input.lower().strip()
